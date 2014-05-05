@@ -7,15 +7,42 @@ build:
     # future builds
     - bundle-install
 
-    # A custom script step
-    # that actually builds the jekyll site
+  # Generate staging
     - script:
-        name: generate site
-        code: bundle exec jekyll build --trace
+        name: generate staging site
+        code: |-
+          bundle exec jekyll build --trace
+
+    - script:
+        name: copy site output
+        code: |-
+          # Copy site to output directory for staging and production
+          mkdir -p $WERCKER_OUTPUT_DIR/{staging,production}
+          cp --recursive _site/* "$WERCKER_OUTPUT_DIR/staging"
+          cp --recursive _site/* "$WERCKER_OUTPUT_DIR/production"
+
+    - create-file:
+        name: generate staging robots.txt
+        filename: $WERCKER_OUTPUT_DIR/staging/robots.txt
+        content: |-
+          # This is a staging version
+          # of blog.abstractfactory.io, no need to index it.
+          User-agent: *
+          Disallow: /
+
+
+    - create-file:
+        name: generate production robots.txt
+        filename: $WERCKER_OUTPUT_DIR/production/robots.txt
+        content: |-
+          User-agent: *
+          Allow: /
+          Sitemap: http://blog.abstractfactory.io/sitemap.xml
+
 deploy:
   steps:
     - s3sync:
-        key_id: $KEY
-        key_secret: $SECRET
-        bucket_url: $URL
-        source_dir: _site/
+        key-id: $KEY
+        key-secret: $SECRET
+        bucket-url: $BUCKET
+        source-dir: $SOURCE
